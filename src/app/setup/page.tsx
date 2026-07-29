@@ -155,6 +155,12 @@ export default async function SetupPage({
                 ))}
               </ul>
 
+              {accountList.mcpNotice && (
+                <p className="mt-2.5 text-[11px] leading-relaxed text-slate-500">
+                  {accountList.mcpNotice}
+                </p>
+              )}
+
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <a
                   href="/dashboard"
