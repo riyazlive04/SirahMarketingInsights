@@ -1,94 +1,79 @@
+import Image from 'next/image';
+
 /**
- * The Ayn mark: an S-swoosh that opens into an arrow, with the brand's blue → magenta
- * gradient and a dark slanted tail.
+ * The brand lock-up: the Ayn mark, the product name, and the Adetive wordmark.
  *
- * Inline SVG rather than an <img> so it inherits size from its container, stays sharp
- * at every density, needs no network request, and renders under a strict CSP.
+ * Both logos are the supplied artwork, served from `public/` and optimised by
+ * `next/image` — earlier revisions of this file carried a hand-traced SVG stand-in,
+ * which is now gone.
  *
- * The gradient ids are fixed, so two marks on one page emit the same id twice. That is
- * deliberate: every instance defines the *identical* gradient, references resolve to
- * the first definition, and the alternative — ids derived from a counter — would differ
- * between the server and client renders and trip a hydration mismatch wherever the mark
- * appears inside a client component.
+ * Two preparation steps were applied to the source files (see docs/brand/README.md):
  *
- * TRACED, NOT THE ORIGINAL FILE. This is a hand-built reproduction of the supplied
- * logo. To ship the authoritative artwork instead, drop it at `public/ayn-logo.svg` and
- * replace the <svg> below with `<img src="/ayn-logo.svg" alt="Ayn" />`; every call site
- * keeps working, since they only ever use <AynMark /> and <AynWordmark />.
+ *  - The mark shipped on an opaque white background, which would have rendered as a
+ *    white square on the copilot's dark header. Its white was unmultiplied into an
+ *    alpha channel — a threshold would have left fringes on the gradient's
+ *    anti-aliased edges — so it now sits on any colour.
+ *  - The Adetive wordmark is white type on near-black and has no light variant, so it
+ *    keeps its own background and is presented as a deliberate dark chip. The margin is
+ *    baked into the image in the logo's own background colour rather than coming from a
+ *    CSS `background`, so there is no seam to mismatch.
  */
+
 export function AynMark({ className = 'h-8 w-auto' }: { className?: string }) {
   return (
-    <svg
-      /* Cropped to the artwork rather than left on a square 512 canvas: the mark is
-         wider than it is tall, and padding it into a square wasted ~20% of its height
-         at nav sizes. Size it by height (`h-7 w-auto`) and let the width follow. */
-      viewBox="20 28 486 406"
+    <Image
+      src="/logo-mark.png"
+      alt=""
+      width={64}
+      height={64}
+      // Decorative wherever it appears — every use sits beside the name in text.
+      aria-hidden="true"
       className={className}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      role="img"
-      aria-label="Ayn"
-    >
-      <defs>
-        {/* Tilted rather than vertical so the swoosh runs blue at the top to magenta at
-            the bottom turn. Left in the default `objectBoundingBox` units, which
-            resolve per referencing element: the arrowhead therefore gets its own
-            blue → purple sweep across its own box rather than a slice of the swoosh's,
-            which is what the original does. */}
-        <linearGradient id="ayn-body" x1="0" y1="0" x2="0.25" y2="1">
-          <stop offset="0%" stopColor="#2f86ff" />
-          <stop offset="30%" stopColor="#3f5cf0" />
-          <stop offset="62%" stopColor="#7b3ae0" />
-          <stop offset="100%" stopColor="#c22ec8" />
-        </linearGradient>
-
-        {/* The tail has its own gradient because it is the one part that goes dark, and
-            a single linear gradient cannot be blue at the top-right, magenta at the
-            bottom-right and navy at the bottom-left. It starts on the bar's magenta so
-            the two meet without a seam. */}
-        <linearGradient id="ayn-tail" x1="1" y1="0" x2="0" y2="0.55">
-          <stop offset="0%" stopColor="#b52fc4" />
-          <stop offset="22%" stopColor="#4a2a8f" />
-          <stop offset="100%" stopColor="#201248" />
-        </linearGradient>
-      </defs>
-
-      {/* The swoosh: bottom bar → 180° turn up the right → middle bar → 180° turn up
-          the left → top bar, running on into the arrowhead. */}
-      <path
-        d="M137 402 L330 402 A66 66 0 0 0 330 270 L142 270 A66 66 0 0 1 142 138 L447 138"
-        stroke="url(#ayn-body)"
-        strokeWidth="44"
-        strokeLinecap="butt"
-      />
-
-      {/* Arrowhead. The bar runs on to the notch vertex, leaving the thin triangular
-          gap between bar and arms that the original has. */}
-      <path d="M386 48 L498 138 L386 228 L386 190 L452 138 L386 86 Z" fill="url(#ayn-body)" />
-
-      {/* Slanted tail, cut back at 45°. */}
-      <path d="M137 380 L137 424 L28 424 L92 380 Z" fill="url(#ayn-tail)" />
-    </svg>
+    />
   );
 }
 
-/** Mark plus name, for headers. `subtitle` renders under the name when supplied. */
+export function AdetiveWordmark({ className = 'h-6 w-auto' }: { className?: string }) {
+  return (
+    <Image
+      src="/logo-adetive.png"
+      alt="Adetive"
+      width={168}
+      height={57}
+      className={`rounded-md ${className}`}
+    />
+  );
+}
+
+/**
+ * Mark + name + Adetive, for the top-left of every screen. `subtitle` renders under the
+ * name when supplied — the top nav uses it for the workspace.
+ */
 export function AynWordmark({
   subtitle,
   markClassName = 'h-8 w-auto',
+  adetiveClassName = 'h-6 w-auto',
 }: {
   subtitle?: string;
   markClassName?: string;
+  adetiveClassName?: string;
 }) {
   return (
     <span className="flex items-center gap-2.5">
       <AynMark className={markClassName} />
+
       <span className="flex flex-col leading-tight">
         <span className="text-sm font-bold tracking-tight text-slate-900">Ayn</span>
         {subtitle && (
           <span className="max-w-[220px] truncate text-[11px] text-slate-500">{subtitle}</span>
         )}
       </span>
+
+      {/* The rule keeps the two brands from reading as one wordmark. Hidden on the
+          narrowest screens, where the nav already wraps and the space is better spent
+          on the workspace name. */}
+      <span className="ml-1 hidden h-6 w-px bg-slate-200 sm:block" aria-hidden="true" />
+      <AdetiveWordmark className={`hidden sm:block ${adetiveClassName}`} />
     </span>
   );
 }
