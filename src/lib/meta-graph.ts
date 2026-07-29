@@ -227,6 +227,41 @@ export async function listGraphAdAccounts(
   }));
 }
 
+/**
+ * The permissions actually granted on a token, straight from Meta.
+ *
+ * Works for any user or system-user token, including ones minted by somebody else's
+ * app — unlike `debug_token`, which requires the app secret of the app that issued it.
+ * That makes this the only way to know what a *pasted* token can do, which matters
+ * because "why is there no MCP data?" is almost always answered by a missing
+ * `ads_mcp_management` here.
+ *
+ * Returns an empty array rather than throwing: not knowing the scopes is a worse
+ * diagnostic, never a reason to reject a token that otherwise works.
+ */
+export async function listGrantedPermissions(accessToken: string): Promise<string[]> {
+  const params = new URLSearchParams({ access_token: accessToken });
+
+  try {
+    const res = await fetch(`${GRAPH_BASE}/${API_VERSION}/me/permissions?${params}`, {
+      cache: 'no-store',
+    });
+
+    const body = (await res.json()) as {
+      data?: { permission?: string; status?: string }[];
+      error?: unknown;
+    };
+
+    if (body.error || !body.data) return [];
+
+    return body.data
+      .filter((row) => row.status === 'granted' && row.permission)
+      .map((row) => row.permission as string);
+  } catch {
+    return [];
+  }
+}
+
 /** Reads account name and currency, which the insights edge does not return. */
 export async function getGraphAccount(
   accessToken: string,

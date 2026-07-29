@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { listGraphAdAccounts } from '@/lib/meta-graph';
+import { listGraphAdAccounts, listGrantedPermissions } from '@/lib/meta-graph';
 import { saveMetaCredential } from '@/lib/meta-credentials';
 
 /**
@@ -65,11 +65,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Recorded so the setup screen can answer "why is there no MCP data?" without a
+  // round-trip to Meta. Best-effort — a token that reads ad accounts is worth storing
+  // whether or not its permission list comes back.
+  const grantedScopes = (await listGrantedPermissions(token)).join(' ');
+
   try {
     await saveMetaCredential({
       companyId: session.companyId,
       metaAppId: typeof metaAppId === 'string' && metaAppId ? metaAppId : 'connected-via-ui',
       accessToken: token,
+      grantedScopes: grantedScopes || null,
+      connectionMethod: 'paste',
     });
   } catch (error) {
     console.error('[connect-meta] failed to store credential', error);

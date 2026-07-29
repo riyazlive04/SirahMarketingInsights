@@ -242,6 +242,8 @@ function ConnectionSummary({ credential }: { credential: CredentialStatus | null
   if (!credential) return null;
 
   const days = credential.daysUntilExpiry;
+  const scopes = credential.grantedScopes?.split(/[\s,]+/).filter(Boolean) ?? [];
+  const hasMcpScope = scopes.includes('ads_mcp_management');
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl bg-slate-50 px-3.5 py-2.5 text-[11px] text-slate-600">
@@ -262,6 +264,18 @@ function ConnectionSummary({ credential }: { credential: CredentialStatus | null
         </span>
       ) : (
         <span>No expiry reported</span>
+      )}
+
+      {/* Whether MCP is reachable at all comes down to one permission, so say plainly
+          whether the *stored* token carries it — the token in someone's Graph API
+          Explorer tab is frequently not the one that got connected. */}
+      {scopes.length > 0 && (
+        <span
+          className={hasMcpScope ? 'text-emerald-700' : 'text-slate-500'}
+          title={scopes.join(', ')}
+        >
+          {hasMcpScope ? '✓ ads_mcp_management granted' : 'no ads_mcp_management'}
+        </span>
       )}
     </div>
   );
