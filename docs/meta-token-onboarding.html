@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ayn — Connect your Meta ad account</title>
+<style>
+  /* Print-first. This document exists to become a PDF, so the screen view is simply
+     the print view centred on a grey backdrop. */
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+
+  :root {
+    --ink: #0f172a;
+    --body: #334155;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --accent: #2f6df6;
+    --warn-bg: #fffbeb;
+    --warn-line: #fcd34d;
+    --warn-ink: #78350f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: "Segoe UI", -apple-system, system-ui, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    color: var(--body);
+    background: #f1f5f9;
+  }
+
+  .page { max-width: 180mm; margin: 0 auto; padding: 14mm 0; background: #fff; }
+
+  @media print {
+    body { background: #fff; }
+    .page { max-width: none; padding: 0; }
+    a { color: var(--ink); text-decoration: none; }
+    /* A URL is useless on paper unless it is written out. */
+    a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 8pt; color: var(--muted); }
+  }
+
+  h1 { font-size: 22pt; line-height: 1.15; color: var(--ink); margin: 0 0 6pt; letter-spacing: -0.4pt; }
+  h2 { font-size: 13pt; color: var(--ink); margin: 0 0 4pt; letter-spacing: -0.2pt; }
+  p  { margin: 0 0 8pt; }
+
+  .lede { font-size: 11pt; color: var(--muted); margin-bottom: 14pt; }
+
+  .brand {
+    display: flex; align-items: center; gap: 8pt;
+    padding-bottom: 10pt; margin-bottom: 16pt; border-bottom: 2pt solid var(--ink);
+  }
+  .brand-name { font-size: 13pt; font-weight: 700; color: var(--ink); letter-spacing: -0.3pt; }
+  .brand-tag { margin-left: auto; font-size: 8.5pt; color: var(--muted); text-transform: uppercase; letter-spacing: 1pt; }
+
+  .meta-line { font-size: 8.5pt; color: var(--muted); margin-bottom: 18pt; }
+
+  .callout {
+    border: 1pt solid var(--warn-line); background: var(--warn-bg); color: var(--warn-ink);
+    border-radius: 4pt; padding: 8pt 10pt; margin: 0 0 14pt; font-size: 9.5pt;
+  }
+  .callout strong { color: var(--warn-ink); }
+
+  .prereq { border: 1pt solid var(--line); border-radius: 4pt; padding: 10pt 12pt; margin-bottom: 18pt; }
+  .prereq h2 { font-size: 10.5pt; margin-bottom: 6pt; }
+  .prereq ul { margin: 0; padding-left: 14pt; font-size: 9.5pt; }
+  .prereq li { margin-bottom: 3pt; }
+
+  /* A step must never straddle a page break — half an instruction is worse than none. */
+  .step { break-inside: avoid; page-break-inside: avoid; margin-bottom: 16pt; }
+
+  .step-head { display: flex; gap: 9pt; align-items: baseline; margin-bottom: 5pt; }
+  .step-num {
+    flex: 0 0 auto; width: 17pt; height: 17pt; border-radius: 50%;
+    background: var(--ink); color: #fff; font-size: 9pt; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .step-body { padding-left: 26pt; }
+  .path {
+    font-family: "Cascadia Mono", Consolas, monospace; font-size: 9pt;
+    background: #f8fafc; border: 1pt solid var(--line); border-radius: 3pt;
+    padding: 5pt 7pt; margin: 5pt 0 7pt; color: var(--ink); display: block;
+  }
+  code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 9pt; background: #f1f5f9; padding: 1pt 3pt; border-radius: 2pt; color: var(--ink); }
+
+  .shot {
+    border: 1.2pt dashed #94a3b8; border-radius: 4pt; background: #f8fafc;
+    padding: 14pt 10pt; margin: 8pt 0 0; text-align: center;
+  }
+  .shot-label { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8pt; color: #94a3b8; }
+  .shot-note { font-size: 9pt; color: var(--muted); margin-top: 3pt; }
+
+  .critical { border-left: 3pt solid #dc2626; padding-left: 9pt; }
+  .critical .tag { color: #dc2626; font-weight: 700; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.6pt; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 14pt; }
+  th, td { text-align: left; padding: 5pt 7pt; border-bottom: 1pt solid var(--line); vertical-align: top; }
+  th { color: var(--ink); font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.5pt; }
+
+  .break { break-before: page; page-break-before: always; }
+  footer { margin-top: 20pt; padding-top: 8pt; border-top: 1pt solid var(--line); font-size: 8.5pt; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="brand">
+    <span class="brand-name">Ayn</span>
+    <span class="brand-tag">Onboarding guide</span>
+  </div>
+
+  <h1>Connect your Meta ad account</h1>
+  <p class="lede">
+    Generate a permanent access token so Ayn can read your ad performance. One-time
+    setup, about ten minutes. The token never expires, so you will not have to do this
+    again.
+  </p>
+
+  <p class="meta-line">Ayn · Sirah Digital · ayn.sirahagents.com</p>
+
+  <div class="callout">
+    <strong>Read-only, always.</strong> Ayn requests the <code>ads_read</code> permission
+    and nothing else. It cannot create, edit, pause or spend on your campaigns. You can
+    revoke access at any time by deleting the System User created in step&nbsp;4.
+  </div>
+
+  <div class="prereq">
+    <h2>Before you start</h2>
+    <ul>
+      <li>You must be an <strong>admin</strong> of the Meta Business that owns the ad account. If you only have access to the ad account itself, ask your Business admin to run this.</li>
+      <li>Have your ad account name to hand — you will pick it from a list.</li>
+      <li>Use a desktop browser. The Business Settings interface does not work well on mobile.</li>
+    </ul>
+  </div>
+
+  <!-- 1 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">1</span><h2>Create a Meta app</h2></div>
+    <div class="step-body">
+      <p>Go to <a href="https://developers.facebook.com/apps">developers.facebook.com/apps</a> and click <strong>Create app</strong>.</p>
+      <p>When asked what you want your app to do, choose <strong>Other</strong>, then <strong>Business</strong> as the app type. Name it something you will recognise later, such as “Ayn Reporting”. Attach it to your Business portfolio when prompted.</p>
+      <span class="path">developers.facebook.com/apps → Create app → Other → Business</span>
+      <div class="shot">
+        <div class="shot-label">Screenshot 1</div>
+        <div class="shot-note">The “Create an app” type selector, with <em>Business</em> selected.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">2</span><h2>Add the Marketing API</h2></div>
+    <div class="step-body">
+      <p>On your new app’s dashboard, scroll the product list to <strong>Marketing API</strong> and click <strong>Set up</strong>. Nothing further to configure here — the product just needs to be present on the app.</p>
+      <div class="shot">
+        <div class="shot-label">Screenshot 2</div>
+        <div class="shot-note">The app dashboard product list, with the Marketing API “Set up” button visible.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">3</span><h2>Open Business Settings</h2></div>
+    <div class="step-body">
+      <p>Go to <a href="https://business.facebook.com/settings">business.facebook.com/settings</a>. If you manage more than one business, use the switcher at the top left to select the one that <strong>owns the ad account you want to report on</strong>.</p>
+      <div class="shot">
+        <div class="shot-label">Screenshot 3</div>
+        <div class="shot-note">Business Settings, with the business switcher open.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">4</span><h2>Create a System User</h2></div>
+    <div class="step-body">
+      <p>In the left sidebar, open <strong>Users → System Users</strong>, then click <strong>Add</strong>.</p>
+      <p>Name it <code>Ayn Reporting</code> and set the role to <strong>Employee</strong>. Employee is sufficient for reading performance data — Admin is not needed.</p>
+      <span class="path">Business Settings → Users → System Users → Add</span>
+      <div class="shot">
+        <div class="shot-label">Screenshot 4</div>
+        <div class="shot-note">The “Create system user” dialog with the name filled in and the Employee role selected.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">5</span><h2>Assign your ad account to it</h2></div>
+    <div class="step-body critical">
+      <p class="tag">Most commonly missed step</p>
+      <p>With the new System User selected, click <strong>Assign assets</strong>. Choose <strong>Ad Accounts</strong>, tick the account you want reported on, and enable <strong>View Performance</strong>. Save.</p>
+      <p>Skip this and everything still appears to work — the token generates, Ayn accepts it — but it reads no ad accounts and your dashboard stays empty.</p>
+      <span class="path">System user → Assign assets → Ad Accounts → [your account] → View Performance</span>
+      <div class="shot">
+        <div class="shot-label">Screenshot 5</div>
+        <div class="shot-note">The asset assignment panel with an ad account ticked and the <em>View Performance</em> toggle on.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">6</span><h2>Assign the app to it</h2></div>
+    <div class="step-body">
+      <p>Still on the System User, click <strong>Assign assets</strong> again. This time choose <strong>Apps</strong>, tick the app you created in step&nbsp;1, and enable <strong>Manage app</strong>. Save.</p>
+      <span class="path">System user → Assign assets → Apps → [your app] → Manage app</span>
+      <div class="shot">
+        <div class="shot-label">Screenshot 6</div>
+        <div class="shot-note">The asset assignment panel on the Apps tab, with the app ticked.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">7</span><h2>Generate the token</h2></div>
+    <div class="step-body critical">
+      <p class="tag">Shown only once</p>
+      <p>Click <strong>Generate new token</strong>. Select the app from step&nbsp;1, then tick <strong><code>ads_read</code></strong> in the permission list. Leave every other permission unticked.</p>
+      <p>Meta displays the token exactly once. <strong>Copy it now</strong> — if you close the dialog without copying, you must generate a new one.</p>
+      <span class="path">System user → Generate new token → [your app] → ads_read → Generate</span>
+      <div class="shot">
+        <div class="shot-label">Screenshot 7</div>
+        <div class="shot-note">The token dialog with <em>ads_read</em> ticked, and the generated token with the Copy button. <strong>Blur the token itself before sharing this screenshot.</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="step">
+    <div class="step-head"><span class="step-num">8</span><h2>Paste it into Ayn</h2></div>
+    <div class="step-body">
+      <p>Sign in at <a href="https://ayn.sirahagents.com">ayn.sirahagents.com</a> with your Google account. On the <strong>Ad account</strong> screen, open <strong>“Or connect with a permanent access token”</strong>, paste the token, and press <strong>Connect</strong>.</p>
+      <p>Ayn checks the token against Meta before saving it, so a bad paste fails immediately with the reason. Once accepted, your ad accounts are listed and the dashboard fills with your live numbers.</p>
+      <div class="shot">
+        <div class="shot-label">Screenshot 8</div>
+        <div class="shot-note">The Ayn setup screen after a successful connection, showing the listed ad accounts.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="break"></div>
+
+  <h2 style="margin-bottom:8pt">If something goes wrong</h2>
+  <table>
+    <thead>
+      <tr><th style="width:38%">What you see</th><th>What it means</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>“The token is valid but reaches no ad accounts.”</td>
+        <td>Step&nbsp;5 was missed, or the wrong ad account was ticked. Reopen the System User, assign the ad account with <em>View Performance</em>, and paste the same token again.</td>
+      </tr>
+      <tr>
+        <td>“That does not look like a Meta access token.”</td>
+        <td>Part of the token was cut off when copying. Generate a new one and copy the whole string.</td>
+      </tr>
+      <tr>
+        <td>“Meta rejected this token.”</td>
+        <td>The token was revoked, or it was generated against an app that is not assigned to the System User. Redo steps&nbsp;6 and&nbsp;7.</td>
+      </tr>
+      <tr>
+        <td>No <strong>System Users</strong> item in the sidebar</td>
+        <td>You are not an admin of this Business. Ask whoever set it up to run this guide, or to make you an admin.</td>
+      </tr>
+      <tr>
+        <td>The ad account is missing from the list in step&nbsp;5</td>
+        <td>The ad account is owned by a different Business than the one you are in. Switch business at the top left and try again.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-bottom:8pt">How your token is handled</h2>
+  <p>
+    The token is encrypted with AES-256-GCM before it is written to the database, and is
+    never sent back to a browser — not to yours, not to anyone else’s. Ayn calls Meta
+    from its own server, so the token never reaches the page you are looking at. It is
+    used only to read reporting data for the ad accounts you assigned in step&nbsp;5.
+  </p>
+  <p>
+    To revoke access at any time: Business Settings → Users → System Users → select
+    <code>Ayn Reporting</code> → Remove. The dashboard stops updating immediately and
+    Ayn will ask you to reconnect.
+  </p>
+
+  <footer>
+    Ayn — Meta ads reporting · Questions: support@sirahdigital.in
+  </footer>
+
+</div>
+</body>
+</html>

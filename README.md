@@ -70,6 +70,56 @@ away from it.
 `npm run mcp:probe` lists the tools your ad account actually exposes; set the reporting
 one as `META_MCP_INSIGHTS_TOOL` to switch the charts from sample to live.
 
+## Connecting a Meta ad account
+
+Two routes, both live on `/setup`.
+
+**Connect with Facebook** (the front door) runs Facebook Login for Business and needs
+`META_APP_ID` + `META_APP_SECRET`, with `{APP_URL}/api/auth/meta/callback` registered
+under Facebook Login → Settings → Valid OAuth Redirect URIs. Three calls happen in
+[meta-oauth.ts](src/lib/meta-oauth.ts), in order:
+
+```
+code  ->  short-lived token (1-2 h)  ->  fb_exchange_token  ->  long-lived (~60 d)
+                                     ->  debug_token        ->  scopes + real expiry
+```
+
+The middle step is not optional — skipping it produces a dashboard that works during the
+demo and is dead by morning. The last step exists because a user can untick individual
+permissions on the consent screen, so what was *requested* tells you nothing about what
+was *granted*; the setup screen names the granted scopes when a connection reaches no
+accounts.
+
+**Paste a permanent token** (the fallback) walks the user through creating a System User
+in their own Business Manager. It never expires, and it needs no App Review — see below.
+
+### App Review, and how to launch before it
+
+Requested scopes default to `ads_read,business_management,pages_show_list` — the
+reviewable minimum for read-only reporting. `ads_mcp_management` is deliberately
+excluded: Meta's Ads MCP server needs it, but requesting an unapproved permission fails
+the entire consent screen, and without it every account still reports through the
+Marketing API fallback. Add it via `META_OAUTH_SCOPES` once review clears it.
+
+Facebook Login only works for the public **after** App Review grants Advanced Access on
+`ads_read` (plus Business Verification). Before that, three options:
+
+| | How | Friction | Expiry |
+| :--- | :--- | :--- | :--- |
+| A | Add each customer as a Tester/Developer on this app | Needs a Facebook developer account, must accept an invite | 60 days |
+| B | Customer creates their own Meta app + System User token and pastes it | ~10 min in Business Manager, needs Business admin | Never |
+| C | App Review + Business Verification | None | 60 days |
+
+**B works with no review of any kind**, because the token is minted by the customer's
+*own* app against their *own* ad account — this app's access level never enters into it,
+it just receives an opaque string. That is also why the seeded development token reads
+real accounts today. [SystemUserTokenGuide.tsx](src/components/SystemUserTokenGuide.tsx)
+is the in-app walkthrough, including the step people miss: assigning the *ad account* to
+the System User, without which the token reads nothing.
+
+Ask for `ads_read` only. A permanent token carrying `ads_management` can spend money,
+and revoking it means deleting the System User.
+
 ## Reconnecting a token
 
 When a token expires, Meta rejects it, the credential is flagged `is_valid = false`,

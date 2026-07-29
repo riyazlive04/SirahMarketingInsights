@@ -10,6 +10,12 @@ export interface MetaCredentialInput {
   accessToken: string;
   refreshToken?: string | null;
   tokenExpiresAt?: Date | null;
+  /** Facebook user id the token belongs to (OAuth connections only). */
+  metaUserId?: string | null;
+  /** Space-separated scopes as *granted*, which is not always as requested. */
+  grantedScopes?: string | null;
+  /** How it got here — a pasted token cannot be renewed in one click, an OAuth one can. */
+  connectionMethod?: 'oauth' | 'paste';
 }
 
 export interface MetaCredential {
@@ -31,9 +37,10 @@ export async function saveMetaCredential(input: MetaCredentialInput): Promise<vo
     `INSERT INTO meta_credentials (
        company_id, meta_app_id, meta_business_id,
        encrypted_access_token, encrypted_refresh_token,
-       key_version, token_expires_at, is_valid, updated_at
+       key_version, token_expires_at, is_valid, updated_at,
+       meta_user_id, granted_scopes, connection_method
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, CURRENT_TIMESTAMP)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, CURRENT_TIMESTAMP, $8, $9, $10)
      ON CONFLICT (company_id) DO UPDATE SET
        meta_app_id = EXCLUDED.meta_app_id,
        meta_business_id = EXCLUDED.meta_business_id,
@@ -41,6 +48,9 @@ export async function saveMetaCredential(input: MetaCredentialInput): Promise<vo
        encrypted_refresh_token = EXCLUDED.encrypted_refresh_token,
        key_version = EXCLUDED.key_version,
        token_expires_at = EXCLUDED.token_expires_at,
+       meta_user_id = EXCLUDED.meta_user_id,
+       granted_scopes = EXCLUDED.granted_scopes,
+       connection_method = EXCLUDED.connection_method,
        is_valid = TRUE,
        updated_at = CURRENT_TIMESTAMP`,
     [
@@ -51,6 +61,9 @@ export async function saveMetaCredential(input: MetaCredentialInput): Promise<vo
       input.refreshToken ? encryptToken(input.refreshToken) : null,
       TOKEN_KEY_VERSION,
       input.tokenExpiresAt ?? null,
+      input.metaUserId ?? null,
+      input.grantedScopes ?? null,
+      input.connectionMethod ?? 'paste',
     ],
   );
 }
@@ -107,6 +120,17 @@ export interface CredentialStatus {
   connected: boolean;
   isValid: boolean;
   updatedAt: Date | null;
+  expiresAt: Date | null;
+  /**
+   * Whole days until the token dies, negative once it has. Computed here rather than in
+   * the component: rendering must be pure, and taking the difference against the
+   * *database* clock avoids skew between this process and Postgres.
+   */
+  daysUntilExpiry: number | null;
+  /** Space-separated scopes as granted. Null for credentials predating OAuth. */
+  grantedScopes: string | null;
+  connectionMethod: 'oauth' | 'paste';
+  metaUserId: string | null;
 }
 
 /**
@@ -119,8 +143,18 @@ export async function getCredentialStatus(
   companyId: string,
   userId: string,
 ): Promise<CredentialStatus> {
-  const { rows } = await db().query<{ is_valid: boolean; updated_at: Date | null }>(
-    `SELECT c.is_valid, c.updated_at
+  const { rows } = await db().query<{
+    is_valid: boolean;
+    updated_at: Date | null;
+    token_expires_at: Date | null;
+    granted_scopes: string | null;
+    connection_method: string;
+    meta_user_id: string | null;
+    days_until_expiry: string | null;
+  }>(
+    `SELECT c.is_valid, c.updated_at, c.token_expires_at,
+            c.granted_scopes, c.connection_method, c.meta_user_id,
+            EXTRACT(EPOCH FROM (c.token_expires_at - now())) / 86400 AS days_until_expiry
        FROM meta_credentials c
        JOIN company_members m ON m.company_id = c.company_id
       WHERE c.company_id = $1 AND m.user_id = $2
@@ -129,9 +163,32 @@ export async function getCredentialStatus(
   );
 
   const row = rows[0];
-  if (!row) return { connected: false, isValid: false, updatedAt: null };
 
-  return { connected: true, isValid: row.is_valid, updatedAt: row.updated_at };
+  if (!row) {
+    return {
+      connected: false,
+      isValid: false,
+      updatedAt: null,
+      expiresAt: null,
+      daysUntilExpiry: null,
+      grantedScopes: null,
+      connectionMethod: 'paste',
+      metaUserId: null,
+    };
+  }
+
+  return {
+    connected: true,
+    isValid: row.is_valid,
+    updatedAt: row.updated_at,
+    expiresAt: row.token_expires_at,
+    // pg returns NUMERIC as a string to avoid precision loss; null when no expiry.
+    daysUntilExpiry:
+      row.days_until_expiry === null ? null : Math.round(Number(row.days_until_expiry)),
+    grantedScopes: row.granted_scopes,
+    connectionMethod: row.connection_method === 'oauth' ? 'oauth' : 'paste',
+    metaUserId: row.meta_user_id,
+  };
 }
 
 /** Flags a credential after Meta rejects it, so the UI can prompt for re-auth. */

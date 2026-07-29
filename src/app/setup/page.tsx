@@ -1,9 +1,12 @@
 import { redirect } from 'next/navigation';
+import { ConnectMetaButton } from '@/components/ConnectMetaButton';
 import { ConnectMetaForm } from '@/components/ConnectMetaForm';
+import { SystemUserTokenGuide } from '@/components/SystemUserTokenGuide';
 import { TopNav } from '@/components/TopNav';
 import { WorkspaceNameForm } from '@/components/WorkspaceNameForm';
 import { listSelectableAccounts, type AccountListResult } from '@/lib/accounts';
-import { getCredentialStatus } from '@/lib/meta-credentials';
+import { getCredentialStatus, type CredentialStatus } from '@/lib/meta-credentials';
+import { isMetaOAuthConfigured } from '@/lib/meta-oauth';
 import { getSession } from '@/lib/session';
 import { getUserProfile, getWorkspace } from '@/lib/users';
 
@@ -15,10 +18,17 @@ export const dynamic = 'force-dynamic';
  * account it reads. This is where a new user lands straight after Google sign-in, and
  * where anyone whose token expired gets sent back to.
  *
- * Everything Meta-facing happens server-side. The token is posted once, from the form
- * below to `/api/connect-meta`, and is never sent back to a browser afterwards.
+ * The primary path is one button — Facebook Login hands back a ~60-day token and the
+ * ad accounts list themselves. Pasting a token by hand still works underneath, because
+ * it is the only route that needs no App Review and it covers System User tokens,
+ * which never expire.
  */
-export default async function SetupPage() {
+export default async function SetupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const session = await getSession().catch(() => null);
   if (!session) redirect('/');
 
@@ -30,6 +40,7 @@ export default async function SetupPage() {
 
   const workspaceName = workspace?.name ?? 'Your workspace';
   const connected = Boolean(credential?.connected && credential.isValid);
+  const oauthReady = isMetaOAuthConfigured();
 
   // Only worth a round-trip to Meta once something is stored. Listed rather than
   // assumed: "the token saved" and "the token reaches ad accounts" are different facts,
@@ -50,10 +61,16 @@ export default async function SetupPage() {
       <main className="mx-auto w-full max-w-[820px] px-6 py-8 pb-28">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">Ad account profile</h1>
         <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
-          Connect the Meta access token this workspace should report on. Ayn reads it
-          server-side only — it is encrypted with AES-256-GCM before it touches the
-          database and is never returned to the browser.
+          Connect the Meta account this workspace should report on. Ayn reads it
+          server-side only — the access token is encrypted with AES-256-GCM before it
+          touches the database and is never returned to the browser.
         </p>
+
+        {error && (
+          <p className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-relaxed text-red-800">
+            {error}
+          </p>
+        )}
 
         <Card className="mt-6">
           <CardTitle
@@ -93,13 +110,15 @@ export default async function SetupPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <CardTitle
               title="Meta ad account"
-              subtitle="A user, system-user or Graph API Explorer token with the ads_read scope."
+              subtitle="Connect with Facebook and your ad accounts are discovered automatically."
             />
             <StatusPill credential={credential} accountCount={accountList.accounts.length} />
           </div>
 
           {live ? (
             <>
+              <ConnectionSummary credential={credential} />
+
               <ul className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200">
                 {accountList.accounts.map((account) => (
                   <li
@@ -143,27 +162,29 @@ export default async function SetupPage() {
                 >
                   Go to my dashboard →
                 </a>
-                <a
-                  href="/report"
-                  className="text-xs font-medium text-blue-600 hover:underline"
-                >
+                <a href="/report" className="text-xs font-medium text-blue-600 hover:underline">
                   Open the client report
                 </a>
               </div>
 
-              <details className="mt-4 text-xs text-slate-500">
+              <details className="mt-5 border-t border-slate-100 pt-4 text-xs text-slate-500">
                 <summary className="cursor-pointer font-medium text-slate-600">
-                  Replace this token
+                  Reconnect or use a different account
                 </summary>
-                <ConnectMetaForm tone="plain" submitLabel="Replace" />
+
+                <div className="mt-3 space-y-3">
+                  <ConnectMetaButton disabled={!oauthReady} label="Reconnect with Facebook" />
+                  <ConnectMetaForm tone="plain" submitLabel="Replace with a pasted token" />
+                </div>
               </details>
             </>
           ) : (
             <>
               {credential?.connected && !credential.isValid && (
                 <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-900">
-                  The stored token was rejected by Meta — that is what happens when a
-                  short-lived Explorer token expires. Paste a fresh one to reconnect.
+                  {credential.connectionMethod === 'oauth'
+                    ? 'The Facebook connection was rejected — it may have expired or been revoked. Reconnect below.'
+                    : 'The stored token was rejected by Meta — that is what happens when a short-lived Explorer token expires. Reconnect below.'}
                 </p>
               )}
 
@@ -173,38 +194,69 @@ export default async function SetupPage() {
                 </p>
               )}
 
-              <ConnectMetaForm tone="plain" redirectTo="/dashboard" />
+              <div className="mt-4">
+                <ConnectMetaButton disabled={!oauthReady} />
 
-              <ol className="mt-5 space-y-2 border-t border-slate-100 pt-4 text-[11px] leading-relaxed text-slate-500">
-                <li>
-                  <strong className="font-semibold text-slate-700">Quick token:</strong> open the{' '}
-                  <a
-                    className="text-blue-600 hover:underline"
-                    href="https://developers.facebook.com/tools/explorer/"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Graph API Explorer
-                  </a>
-                  , pick your app, add the <code className="font-mono">ads_read</code> permission
-                  and generate. Lasts 1–2 hours.
-                </li>
-                <li>
-                  <strong className="font-semibold text-slate-700">Permanent token:</strong>{' '}
-                  Business Settings → Users → System Users → Add → Generate New Token, with{' '}
-                  <code className="font-mono">ads_read</code> and{' '}
-                  <code className="font-mono">ads_management</code>. Does not expire.
-                </li>
-                <li>
-                  For the AI copilot to use Meta&rsquo;s Ads MCP server, the token also needs{' '}
-                  <code className="font-mono">ads_mcp_management</code>. Without it, accounts
-                  still report through the Marketing API.
-                </li>
-              </ol>
+                <p className="mt-2.5 max-w-[62ch] text-[11px] leading-relaxed text-slate-500">
+                  You will be asked to allow Ayn to read your ads and see your Pages. We
+                  request read-only permissions — nothing in this app can create, edit or
+                  pause a campaign. The connection lasts about 60 days and can be revoked
+                  at any time from your Facebook settings.
+                </p>
+              </div>
+
+              {!oauthReady && (
+                <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-900">
+                  Facebook Login is not configured on this deployment — set{' '}
+                  <code className="font-mono">META_APP_ID</code> and{' '}
+                  <code className="font-mono">META_APP_SECRET</code>. You can still paste a
+                  token below.
+                </p>
+              )}
+
+              <details className="mt-5 border-t border-slate-100 pt-4">
+                <summary className="cursor-pointer text-xs font-medium text-slate-600">
+                  Or connect with a permanent access token
+                </summary>
+
+                <SystemUserTokenGuide />
+
+                <ConnectMetaForm tone="plain" redirectTo="/dashboard" />
+              </details>
             </>
           )}
         </Card>
       </main>
+    </div>
+  );
+}
+
+/** How the connection was made, who it belongs to, and how long it has left. */
+function ConnectionSummary({ credential }: { credential: CredentialStatus | null }) {
+  if (!credential) return null;
+
+  const days = credential.daysUntilExpiry;
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl bg-slate-50 px-3.5 py-2.5 text-[11px] text-slate-600">
+      <span>
+        Connected via{' '}
+        <strong className="font-semibold text-slate-900">
+          {credential.connectionMethod === 'oauth' ? 'Facebook Login' : 'a pasted token'}
+        </strong>
+      </span>
+
+      {credential.metaUserId && (
+        <span className="font-mono text-slate-400">user {credential.metaUserId}</span>
+      )}
+
+      {days !== null ? (
+        <span className={days <= 7 ? 'font-semibold text-amber-700' : undefined}>
+          {days > 0 ? `Expires in ${days} day${days === 1 ? '' : 's'}` : 'Expired'}
+        </span>
+      ) : (
+        <span>No expiry reported</span>
+      )}
     </div>
   );
 }
@@ -236,9 +288,12 @@ function StatusPill({
   const [label, tone] = !credential?.connected
     ? ['Not connected', 'bg-slate-100 text-slate-600']
     : !credential.isValid
-      ? ['Token rejected', 'bg-red-50 text-red-700']
+      ? ['Connection rejected', 'bg-red-50 text-red-700']
       : accountCount
-        ? [`${accountCount} account${accountCount === 1 ? '' : 's'} live`, 'bg-emerald-50 text-emerald-700']
+        ? [
+            `${accountCount} account${accountCount === 1 ? '' : 's'} live`,
+            'bg-emerald-50 text-emerald-700',
+          ]
         : ['Connected, no accounts', 'bg-amber-50 text-amber-800'];
 
   return (
