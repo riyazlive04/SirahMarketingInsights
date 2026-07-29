@@ -1,0 +1,21 @@
+<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Browser-tab icon. Kept in sync by hand with src/components/AynLogo.tsx — Next's
+       icon file convention wants a static asset, so this cannot import the component. -->
+  <defs>
+    <linearGradient id="ayn-body" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0%" stop-color="#2f86ff"/>
+      <stop offset="30%" stop-color="#3f5cf0"/>
+      <stop offset="62%" stop-color="#7b3ae0"/>
+      <stop offset="100%" stop-color="#c22ec8"/>
+    </linearGradient>
+    <linearGradient id="ayn-tail" x1="1" y1="0" x2="0" y2="0.55">
+      <stop offset="0%" stop-color="#b52fc4"/>
+      <stop offset="22%" stop-color="#4a2a8f"/>
+      <stop offset="100%" stop-color="#201248"/>
+    </linearGradient>
+  </defs>
+  <path d="M137 402 L330 402 A66 66 0 0 0 330 270 L142 270 A66 66 0 0 1 142 138 L447 138"
+        stroke="url(#ayn-body)" stroke-width="44" stroke-linecap="butt"/>
+  <path d="M386 48 L498 138 L386 228 L386 190 L452 138 L386 86 Z" fill="url(#ayn-body)"/>
+  <path d="M137 380 L137 424 L28 424 L92 380 Z" fill="url(#ayn-tail)"/>
+</svg>
